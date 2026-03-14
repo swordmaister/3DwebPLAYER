@@ -17,21 +17,40 @@
 
         /* 名前表示帯 */
         .filename-display {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 8px;
             font-size: 1.2rem; font-weight: bold; z-index: 20; backdrop-filter: blur(5px);
-            transition: opacity 0.3s; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; opacity: 0; pointer-events: none; white-space: nowrap;
         }
         .filename-display.visible { opacity: 1; }
+
+        /* リモコンUI（スマホでも押しやすいサイズに） */
+        .remote-control {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7); padding: 15px 25px; border-radius: 40px;
+            display: flex; gap: 15px; z-index: 25; backdrop-filter: blur(5px);
+            transition: opacity 0.3s, transform 0.3s; opacity: 0; pointer-events: none; transform: translate(-50%, 20px);
+        }
+        .remote-control.visible { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+        
+        .remote-control button {
+            background: #fff; color: #000; border: none; padding: 12px 20px; font-size: 1rem;
+            border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            min-width: 80px; touch-action: manipulation; /* スマホでのタップ遅延防止 */
+        }
+        .remote-control button:hover { background: #ddd; }
+        .remote-control button.play-btn { background: #00ffcc; }
+        .remote-control button.play-btn:hover { background: #00ddaa; }
+        .remote-control button.play-btn.paused { background: #ff4444; color: #fff; }
 
         /* 右上のメニューボタン */
         .menu-btn {
             position: absolute; top: 20px; right: 20px; z-index: 30;
-            padding: 10px 20px; font-size: 1rem; cursor: pointer;
-            background-color: rgba(255, 255, 255, 0.2); color: #fff; border: 1px solid #fff;
-            border-radius: 8px; backdrop-filter: blur(5px); transition: 0.2s;
+            padding: 12px 20px; font-size: 1rem; cursor: pointer;
+            background-color: rgba(0, 0, 0, 0.6); color: #fff; border: 1px solid #fff;
+            border-radius: 8px; backdrop-filter: blur(5px); transition: 0.2s; touch-action: manipulation;
         }
-        .menu-btn:hover { background-color: rgba(255, 255, 255, 0.4); }
+        .menu-btn:hover { background-color: rgba(255, 255, 255, 0.3); }
 
         /* オプションメニュー（モーダル） */
         .modal {
@@ -40,25 +59,25 @@
         }
         .modal.active { display: flex; }
         .modal-content {
-            background: #222; padding: 30px; border-radius: 12px; width: 80%; max-width: 500px;
-            max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            background: #222; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
-        .close-btn { background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+        .close-btn { background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; padding: 0 10px; }
         
         /* 設定項目 */
-        .setting-row { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
-        .setting-row select, .setting-row input[type="checkbox"] { transform: scale(1.2); }
-        .setting-row select { padding: 5px; font-size: 1rem; }
+        .setting-row { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; font-size: 1.1rem; }
+        .setting-row select, .setting-row input[type="checkbox"] { transform: scale(1.3); cursor: pointer; }
+        .setting-row select { padding: 8px; font-size: 1rem; border-radius: 5px; }
 
         /* プレイリスト */
         .playlist { list-style: none; padding: 0; margin: 0; border-top: 1px solid #444; padding-top: 15px; }
         .playlist li {
-            padding: 10px; border-bottom: 1px solid #333; cursor: pointer; transition: 0.2s;
-            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 10px; border-bottom: 1px solid #333; cursor: pointer; transition: 0.2s;
+            display: flex; justify-content: space-between; align-items: center; font-size: 1.1rem;
         }
         .playlist li:hover { background-color: #333; }
-        .playlist li.playing { color: #00ffcc; font-weight: bold; }
+        .playlist li.playing { color: #00ffcc; font-weight: bold; border-left: 4px solid #00ffcc; padding-left: 15px; }
 
         /* ローディング画面 */
         #loadingOverlay {
@@ -79,30 +98,41 @@
         <iframe id="frame2" sandbox="allow-scripts allow-same-origin"></iframe>
     </div>
 
+    <div class="remote-control visible" id="remoteControl">
+        <button id="prevBtn">◀ 戻る</button>
+        <button id="playPauseBtn" class="play-btn">一時停止</button>
+        <button id="nextBtn">進む ▶</button>
+    </div>
+
     <div class="filename-display" id="filenameDisplay">ファイル名</div>
 
-    <button class="menu-btn" id="openMenuBtn">設定 / プレイリスト</button>
+    <button class="menu-btn" id="openMenuBtn">⚙ 設定 / リスト</button>
 
     <div class="modal" id="optionsModal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>オプション</h2>
-                <button class="close-btn" id="closeMenuBtn">✖</button>
+                <button class="close-btn" id="closeMenuBtn">×</button>
             </div>
             
+            <div class="setting-row">
+                <label for="showRemote">画面にリモコンを表示:</label>
+                <input type="checkbox" id="showRemote" checked>
+            </div>
+
             <div class="setting-row">
                 <label for="speedSelect">再生切り替え間隔:</label>
                 <select id="speedSelect">
                     <option value="5000">5秒</option>
-                    <option value="10000" selected>10秒</option>
-                    <option value="20000">20秒</option>
+                    <option value="10000">10秒</option>
+                    <option value="15000" selected>15秒</option> <option value="20000">20秒</option>
                     <option value="30000">30秒</option>
-                    <option value="manual">手動再生（自動切り替えオフ）</option>
+                    <option value="manual">手動再生のみ</option>
                 </select>
             </div>
             
             <div class="setting-row">
-                <label for="alwaysShowName">再生中に常にファイル名を表示:</label>
+                <label for="alwaysShowName">常にファイル名を表示:</label>
                 <input type="checkbox" id="alwaysShowName">
             </div>
 
@@ -114,18 +144,19 @@
 
     <script>
         // ==========================================
-        // ★GASのウェブアプリURLを貼り付けます（URLはそのままでOK）
+        // ★GASのウェブアプリURLを貼り付けます
         // ==========================================
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNlRQKSABT7XgRwcjurtzvI3fR4SGRBSU444BXzKoxv6ZAoCYiZzIvTe6oVDzAT4oZ/exec";
+        const GAS_WEB_APP_URL = "ここにGASのウェブアプリURLを貼り付けます";
         
-        let filesList = []; // ファイルのリスト（名前とID）
-        let contentCache = {}; // 読み込んだHTML中身の保存先
+        let filesList = []; 
+        let contentCache = {}; 
         let currentIndex = 0;
         let activeFrameId = 'frame1';
         let timerId = null;
+        let isTransitioning = false; // 連打防止フラグ
         
         // 設定
-        let switchInterval = 10000; 
+        let switchInterval = 15000; // デフォルト15秒
         let isAutoPlay = true;
         let alwaysShowName = false;
 
@@ -136,6 +167,8 @@
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingMsg = document.getElementById('loadingMsg');
         const playlistEl = document.getElementById('playlist');
+        const remoteControl = document.getElementById('remoteControl');
+        const playPauseBtn = document.getElementById('playPauseBtn');
 
         // ==========================================
         // 1. 起動とリストの取得
@@ -151,12 +184,9 @@
                 }
                 
                 buildPlaylist();
-                
-                // 1個目のデータだけを要求して、取得できたらすぐ再生！
-                loadingMsg.textContent = "最初の3Dデータを読み込み中...";
+                loadingMsg.textContent = "最初のデータを読み込み中...";
                 await loadAndPlay(0);
                 
-                // ローディング画面を消す
                 loadingOverlay.style.opacity = '0';
                 setTimeout(() => loadingOverlay.style.display = 'none', 500);
 
@@ -165,57 +195,55 @@
             }
         }
 
-        // ==========================================
-        // 2. 指定したファイルの「中身」をGASから取得する
-        // ==========================================
         async function fetchFileContent(id) {
-            if (contentCache[id]) return contentCache[id]; // 既に取得済みなら再利用
-
-            // GASに「このIDの中身を頂戴」とリクエスト
+            if (contentCache[id]) return contentCache[id];
             const response = await fetch(GAS_WEB_APP_URL + "?fileId=" + id);
             const content = await response.text();
-            contentCache[id] = content; // キャッシュに保存
+            contentCache[id] = content;
             return content;
         }
 
         // ==========================================
-        // 3. 再生処理（1つだけ読み込んで表示し、次を裏で準備）
+        // 2. 最初の読み込み / プレイリストからの直接指定
         // ==========================================
         async function loadAndPlay(index) {
-            clearTimeout(timerId); // 一旦タイマーを止める
+            clearTimeout(timerId);
             currentIndex = index;
             updateUI();
 
             const file = filesList[currentIndex];
             const content = await fetchFileContent(file.id);
 
-            // 現在のフレームにセット
             const currentFrame = (activeFrameId === 'frame1') ? frame1 : frame2;
             currentFrame.srcdoc = content;
             currentFrame.classList.add('active');
 
-            // 次の再生のタイマーをセット
             scheduleNext();
-
-            // 裏側で「次のファイル」をこっそり取得しておく（バックグラウンドロード）
+            
+            // 次のファイルを裏で読み込み
             const nextIndex = (currentIndex + 1) % filesList.length;
             fetchFileContent(filesList[nextIndex].id); 
         }
 
         // ==========================================
-        // 4. タイマーと切り替え処理
+        // 3. スムーズな画面切り替え（自動・手動共通）
         // ==========================================
-        function scheduleNext() {
-            if (!isAutoPlay || filesList.length <= 1) return;
-            timerId = setTimeout(switchFrame, switchInterval);
-        }
+        async function switchFrame(direction = 'next') {
+            if (filesList.length <= 1 || isTransitioning) return;
+            isTransitioning = true; // 連打防止
+            clearTimeout(timerId); // 手動切り替え時は一旦タイマーリセット
 
-        async function switchFrame() {
-            const nextIndex = (currentIndex + 1) % filesList.length;
+            // 次（または前）のインデックスを計算
+            let nextIndex;
+            if (direction === 'next') {
+                nextIndex = (currentIndex + 1) % filesList.length;
+            } else {
+                nextIndex = (currentIndex - 1 + filesList.length) % filesList.length;
+            }
+
             const file = filesList[nextIndex];
-            
-            // 裏のフレームにセット
             const nextContent = await fetchFileContent(file.id);
+            
             const nextFrame = (activeFrameId === 'frame1') ? frame2 : frame1;
             const currentFrame = (activeFrameId === 'frame1') ? frame1 : frame2;
 
@@ -229,16 +257,47 @@
             currentIndex = nextIndex;
             updateUI();
 
-            // さらに次をスケジュール
+            // 1秒(クロスフェード完了)後に連打防止を解除
+            setTimeout(() => { isTransitioning = false; }, 1000);
+
             scheduleNext();
             
-            // さらにその次をバックグラウンドロード
-            const overNextIndex = (currentIndex + 1) % filesList.length;
+            // さらに先をバックグラウンドロード
+            const overNextIndex = (direction === 'next') ? (currentIndex + 1) % filesList.length : (currentIndex - 1 + filesList.length) % filesList.length;
             fetchFileContent(filesList[overNextIndex].id);
         }
 
+        function scheduleNext() {
+            if (!isAutoPlay || filesList.length <= 1) return;
+            timerId = setTimeout(() => switchFrame('next'), switchInterval);
+        }
+
         // ==========================================
-        // 5. UIとオプションの制御
+        // 4. 再生/一時停止のトグル処理
+        // ==========================================
+        function togglePlay() {
+            isAutoPlay = !isAutoPlay;
+            if (isAutoPlay) {
+                // 再生開始
+                playPauseBtn.textContent = "一時停止";
+                playPauseBtn.classList.remove('paused');
+                scheduleNext();
+                
+                // 設定メニューのプルダウンも連動して戻す（手動になっていた場合）
+                if(document.getElementById('speedSelect').value === 'manual'){
+                    document.getElementById('speedSelect').value = switchInterval;
+                }
+            } else {
+                // 一時停止
+                playPauseBtn.textContent = "▶ 再生する";
+                playPauseBtn.classList.add('paused');
+                clearTimeout(timerId);
+            }
+            updateUI();
+        }
+
+        // ==========================================
+        // 5. UIとイベントの制御
         // ==========================================
         function updateUI() {
             filenameDisplay.textContent = filesList[currentIndex].name;
@@ -248,7 +307,6 @@
                 filenameDisplay.classList.remove('visible');
             }
 
-            // プレイリストのハイライト更新
             document.querySelectorAll('.playlist li').forEach((li, idx) => {
                 if(idx === currentIndex) li.classList.add('playing');
                 else li.classList.remove('playing');
@@ -274,6 +332,20 @@
             });
         }
 
+        // リモコンボタンの操作
+        document.getElementById('prevBtn').addEventListener('click', () => switchFrame('prev'));
+        document.getElementById('nextBtn').addEventListener('click', () => switchFrame('next'));
+        playPauseBtn.addEventListener('click', togglePlay);
+
+        // PCスペースキーでの再生/一時停止対応
+        document.addEventListener('keydown', (e) => {
+            // モーダルが開いている時は誤作動防止のためスペースキーを無効化
+            if (e.code === 'Space' && !document.getElementById('optionsModal').classList.contains('active')) {
+                e.preventDefault(); // 画面スクロールを防ぐ
+                togglePlay();
+            }
+        });
+
         // メニューの開閉
         document.getElementById('openMenuBtn').addEventListener('click', () => {
             document.getElementById('optionsModal').classList.add('active');
@@ -288,10 +360,14 @@
             if (val === 'manual') {
                 isAutoPlay = false;
                 clearTimeout(timerId);
+                playPauseBtn.textContent = "▶ 再生する";
+                playPauseBtn.classList.add('paused');
             } else {
                 isAutoPlay = true;
                 switchInterval = parseInt(val);
                 clearTimeout(timerId);
+                playPauseBtn.textContent = "一時停止";
+                playPauseBtn.classList.remove('paused');
                 scheduleNext();
             }
             updateUI();
@@ -300,6 +376,14 @@
         document.getElementById('alwaysShowName').addEventListener('change', (e) => {
             alwaysShowName = e.target.checked;
             updateUI();
+        });
+
+        document.getElementById('showRemote').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                remoteControl.classList.add('visible');
+            } else {
+                remoteControl.classList.remove('visible');
+            }
         });
 
         // 起動
