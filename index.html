@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3D Auto Viewer</title>
+    <title>Web3D Auto Viewer Pro</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
         .viewer-container { position: relative; width: 100vw; height: 100vh; }
@@ -15,132 +15,295 @@
         }
         iframe.active { opacity: 1; pointer-events: auto; z-index: 10; }
 
-        .ui-container {
+        /* 名前表示帯 */
+        .filename-display {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 20; display: flex; flex-direction: column; align-items: center; gap: 15px;
-            background: rgba(0, 0, 0, 0.7); padding: 20px 30px; border-radius: 12px; backdrop-filter: blur(5px);
+            background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 8px;
+            font-size: 1.2rem; font-weight: bold; z-index: 20; backdrop-filter: blur(5px);
+            transition: opacity 0.3s; opacity: 0; pointer-events: none;
         }
-        
-        .filename-display { font-size: 1.2rem; font-weight: bold; display: none; }
-        .filename-display.visible { display: block; }
-        #loadingMsg { font-size: 1.2rem; margin-bottom: 10px; color: #00ffcc; }
+        .filename-display.visible { opacity: 1; }
 
-        button {
-            padding: 12px 30px; font-size: 1rem; font-weight: bold; cursor: pointer;
-            border: none; border-radius: 8px; background-color: #fff; color: #000; transition: background 0.2s;
+        /* 右上のメニューボタン */
+        .menu-btn {
+            position: absolute; top: 20px; right: 20px; z-index: 30;
+            padding: 10px 20px; font-size: 1rem; cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.2); color: #fff; border: 1px solid #fff;
+            border-radius: 8px; backdrop-filter: blur(5px); transition: 0.2s;
         }
-        button:hover { background-color: #ddd; }
-        button:disabled { background-color: #555; cursor: not-allowed; }
+        .menu-btn:hover { background-color: rgba(255, 255, 255, 0.4); }
+
+        /* オプションメニュー（モーダル） */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 40; justify-content: center; align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #222; padding: 30px; border-radius: 12px; width: 80%; max-width: 500px;
+            max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
+        .close-btn { background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+        
+        /* 設定項目 */
+        .setting-row { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+        .setting-row select, .setting-row input[type="checkbox"] { transform: scale(1.2); }
+        .setting-row select { padding: 5px; font-size: 1rem; }
+
+        /* プレイリスト */
+        .playlist { list-style: none; padding: 0; margin: 0; border-top: 1px solid #444; padding-top: 15px; }
+        .playlist li {
+            padding: 10px; border-bottom: 1px solid #333; cursor: pointer; transition: 0.2s;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .playlist li:hover { background-color: #333; }
+        .playlist li.playing { color: #00ffcc; font-weight: bold; }
+
+        /* ローディング画面 */
+        #loadingOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 50; transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body>
+
+    <div id="loadingOverlay">
+        <h2 id="loadingMsg">リストを取得中...</h2>
+    </div>
 
     <div class="viewer-container">
         <iframe id="frame1" class="active" sandbox="allow-scripts allow-same-origin"></iframe>
         <iframe id="frame2" sandbox="allow-scripts allow-same-origin"></iframe>
     </div>
 
-    <div class="ui-container">
-        <div id="loadingMsg">Googleドライブから3Dデータを取得中...</div>
-        <div class="filename-display" id="filenameDisplay">ファイル名: </div>
-        <button id="toggleBtn" disabled>準備中...</button>
+    <div class="filename-display" id="filenameDisplay">ファイル名</div>
+
+    <button class="menu-btn" id="openMenuBtn">設定 / プレイリスト</button>
+
+    <div class="modal" id="optionsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>オプション</h2>
+                <button class="close-btn" id="closeMenuBtn">✖</button>
+            </div>
+            
+            <div class="setting-row">
+                <label for="speedSelect">再生切り替え間隔:</label>
+                <select id="speedSelect">
+                    <option value="5000">5秒</option>
+                    <option value="10000" selected>10秒</option>
+                    <option value="20000">20秒</option>
+                    <option value="30000">30秒</option>
+                    <option value="manual">手動再生（自動切り替えオフ）</option>
+                </select>
+            </div>
+            
+            <div class="setting-row">
+                <label for="alwaysShowName">再生中に常にファイル名を表示:</label>
+                <input type="checkbox" id="alwaysShowName">
+            </div>
+
+            <h3 style="margin-top: 30px; border-bottom: 1px solid #444; padding-bottom: 5px;">プレイリスト</h3>
+            <ul class="playlist" id="playlist">
+                </ul>
+        </div>
     </div>
 
     <script>
         // ==========================================
-        // ★新しくデプロイしたGASのウェブアプリURLを貼り付けます
+        // ★GASのウェブアプリURLを貼り付けます（URLはそのままでOK）
         // ==========================================
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNlRQKSABT7XgRwcjurtzvI3fR4SGRBSU444BXzKoxv6ZAoCYiZzIvTe6oVDzAT4oZ/exec";
+        const GAS_WEB_APP_URL = "ここにGASのウェブアプリURLを貼り付けます";
         
-        let files = [];
+        let filesList = []; // ファイルのリスト（名前とID）
+        let contentCache = {}; // 読み込んだHTML中身の保存先
         let currentIndex = 0;
         let activeFrameId = 'frame1';
-        let isPlaying = true;
-        let intervalId = null;
-        const SWITCH_INTERVAL = 10000; // 10秒
+        let timerId = null;
+        
+        // 設定
+        let switchInterval = 10000; 
+        let isAutoPlay = true;
+        let alwaysShowName = false;
 
+        // DOM要素
         const frame1 = document.getElementById('frame1');
         const frame2 = document.getElementById('frame2');
-        const toggleBtn = document.getElementById('toggleBtn');
         const filenameDisplay = document.getElementById('filenameDisplay');
+        const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingMsg = document.getElementById('loadingMsg');
+        const playlistEl = document.getElementById('playlist');
 
-        async function fetchFileList() {
+        // ==========================================
+        // 1. 起動とリストの取得
+        // ==========================================
+        async function initApp() {
             try {
                 const response = await fetch(GAS_WEB_APP_URL);
-                files = await response.json();
+                filesList = await response.json();
 
-                if (files.error) {
-                    loadingMsg.textContent = "エラー: " + files.error;
+                if (filesList.length === 0) {
+                    loadingMsg.textContent = "ファイルが見つかりません。";
                     return;
                 }
-
-                if (files.length === 0) {
-                    loadingMsg.textContent = "フォルダ内にHTMLファイルが見つかりません。";
-                    return;
-                }
-
-                loadingMsg.style.display = 'none';
-                toggleBtn.disabled = false;
-                initViewer();
+                
+                buildPlaylist();
+                
+                // 1個目のデータだけを要求して、取得できたらすぐ再生！
+                loadingMsg.textContent = "最初の3Dデータを読み込み中...";
+                await loadAndPlay(0);
+                
+                // ローディング画面を消す
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.style.display = 'none', 500);
 
             } catch (error) {
-                loadingMsg.textContent = "データの取得に失敗しました。";
-                console.error(error);
+                loadingMsg.textContent = "リストの取得に失敗しました。";
             }
         }
 
-        function initViewer() {
-            // ★変更点：src ではなく srcdoc に取得したHTMLの中身(content)を流し込む
-            frame1.srcdoc = files[currentIndex].content;
-            if(files.length > 1) {
-                frame2.srcdoc = files[(currentIndex + 1) % files.length].content;
-            }
-            startAutoPlay();
+        // ==========================================
+        // 2. 指定したファイルの「中身」をGASから取得する
+        // ==========================================
+        async function fetchFileContent(id) {
+            if (contentCache[id]) return contentCache[id]; // 既に取得済みなら再利用
+
+            // GASに「このIDの中身を頂戴」とリクエスト
+            const response = await fetch(GAS_WEB_APP_URL + "?fileId=" + id);
+            const content = await response.text();
+            contentCache[id] = content; // キャッシュに保存
+            return content;
         }
 
-        function switchFrame() {
-            if (files.length <= 1) return;
+        // ==========================================
+        // 3. 再生処理（1つだけ読み込んで表示し、次を裏で準備）
+        // ==========================================
+        async function loadAndPlay(index) {
+            clearTimeout(timerId); // 一旦タイマーを止める
+            currentIndex = index;
+            updateUI();
 
-            currentIndex = (currentIndex + 1) % files.length;
-            const nextIndex = (currentIndex + 1) % files.length;
+            const file = filesList[currentIndex];
+            const content = await fetchFileContent(file.id);
 
-            if (activeFrameId === 'frame1') {
-                frame1.classList.remove('active');
-                frame2.classList.add('active');
-                activeFrameId = 'frame2';
-                // ★ここも srcdoc に変更
-                setTimeout(() => { frame1.srcdoc = files[nextIndex].content; }, 1000);
+            // 現在のフレームにセット
+            const currentFrame = (activeFrameId === 'frame1') ? frame1 : frame2;
+            currentFrame.srcdoc = content;
+            currentFrame.classList.add('active');
+
+            // 次の再生のタイマーをセット
+            scheduleNext();
+
+            // 裏側で「次のファイル」をこっそり取得しておく（バックグラウンドロード）
+            const nextIndex = (currentIndex + 1) % filesList.length;
+            fetchFileContent(filesList[nextIndex].id); 
+        }
+
+        // ==========================================
+        // 4. タイマーと切り替え処理
+        // ==========================================
+        function scheduleNext() {
+            if (!isAutoPlay || filesList.length <= 1) return;
+            timerId = setTimeout(switchFrame, switchInterval);
+        }
+
+        async function switchFrame() {
+            const nextIndex = (currentIndex + 1) % filesList.length;
+            const file = filesList[nextIndex];
+            
+            // 裏のフレームにセット
+            const nextContent = await fetchFileContent(file.id);
+            const nextFrame = (activeFrameId === 'frame1') ? frame2 : frame1;
+            const currentFrame = (activeFrameId === 'frame1') ? frame1 : frame2;
+
+            nextFrame.srcdoc = nextContent;
+
+            // クロスフェード実行
+            currentFrame.classList.remove('active');
+            nextFrame.classList.add('active');
+            
+            activeFrameId = (activeFrameId === 'frame1') ? 'frame2' : 'frame1';
+            currentIndex = nextIndex;
+            updateUI();
+
+            // さらに次をスケジュール
+            scheduleNext();
+            
+            // さらにその次をバックグラウンドロード
+            const overNextIndex = (currentIndex + 1) % filesList.length;
+            fetchFileContent(filesList[overNextIndex].id);
+        }
+
+        // ==========================================
+        // 5. UIとオプションの制御
+        // ==========================================
+        function updateUI() {
+            filenameDisplay.textContent = filesList[currentIndex].name;
+            if (alwaysShowName || !isAutoPlay) {
+                filenameDisplay.classList.add('visible');
             } else {
-                frame2.classList.remove('active');
-                frame1.classList.add('active');
-                activeFrameId = 'frame1';
-                // ★ここも srcdoc に変更
-                setTimeout(() => { frame2.srcdoc = files[nextIndex].content; }, 1000);
+                filenameDisplay.classList.remove('visible');
             }
+
+            // プレイリストのハイライト更新
+            document.querySelectorAll('.playlist li').forEach((li, idx) => {
+                if(idx === currentIndex) li.classList.add('playing');
+                else li.classList.remove('playing');
+            });
         }
 
-        function startAutoPlay() {
-            isPlaying = true;
-            toggleBtn.textContent = "一時停止 (Pause)";
-            filenameDisplay.classList.remove('visible');
-            intervalId = setInterval(switchFrame, SWITCH_INTERVAL);
+        function buildPlaylist() {
+            playlistEl.innerHTML = '';
+            filesList.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.textContent = file.name;
+                li.onclick = () => {
+                    document.getElementById('optionsModal').classList.remove('active');
+                    loadingOverlay.style.display = 'flex';
+                    loadingOverlay.style.opacity = '1';
+                    loadingMsg.textContent = "読み込み中...";
+                    loadAndPlay(index).then(() => {
+                        loadingOverlay.style.opacity = '0';
+                        setTimeout(() => loadingOverlay.style.display = 'none', 500);
+                    });
+                };
+                playlistEl.appendChild(li);
+            });
         }
 
-        function stopAutoPlay() {
-            isPlaying = false;
-            clearInterval(intervalId);
-            toggleBtn.textContent = "オート再生 (Play)";
-            filenameDisplay.textContent = "現在表示中: " + files[currentIndex].name;
-            filenameDisplay.classList.add('visible');
-        }
-
-        toggleBtn.addEventListener('click', () => {
-            if (isPlaying) stopAutoPlay();
-            else startAutoPlay();
+        // メニューの開閉
+        document.getElementById('openMenuBtn').addEventListener('click', () => {
+            document.getElementById('optionsModal').classList.add('active');
+        });
+        document.getElementById('closeMenuBtn').addEventListener('click', () => {
+            document.getElementById('optionsModal').classList.remove('active');
         });
 
-        window.onload = fetchFileList;
+        // 設定の変更イベント
+        document.getElementById('speedSelect').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'manual') {
+                isAutoPlay = false;
+                clearTimeout(timerId);
+            } else {
+                isAutoPlay = true;
+                switchInterval = parseInt(val);
+                clearTimeout(timerId);
+                scheduleNext();
+            }
+            updateUI();
+        });
+
+        document.getElementById('alwaysShowName').addEventListener('change', (e) => {
+            alwaysShowName = e.target.checked;
+            updateUI();
+        });
+
+        // 起動
+        window.onload = initApp;
     </script>
 </body>
 </html>
