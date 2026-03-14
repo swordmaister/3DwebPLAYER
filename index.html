@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3D Auto Viewer (Folder Sync)</title>
+    <title>Web3D Auto Viewer</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
         .viewer-container { position: relative; width: 100vw; height: 100vh; }
@@ -11,6 +11,7 @@
         iframe {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             border: none; transition: opacity 1s ease-in-out; opacity: 0; pointer-events: none;
+            background-color: #000;
         }
         iframe.active { opacity: 1; pointer-events: auto; z-index: 10; }
 
@@ -22,7 +23,6 @@
         
         .filename-display { font-size: 1.2rem; font-weight: bold; display: none; }
         .filename-display.visible { display: block; }
-        
         #loadingMsg { font-size: 1.2rem; margin-bottom: 10px; color: #00ffcc; }
 
         button {
@@ -36,19 +36,19 @@
 <body>
 
     <div class="viewer-container">
-        <iframe id="frame1" class="active"></iframe>
-        <iframe id="frame2"></iframe>
+        <iframe id="frame1" class="active" sandbox="allow-scripts allow-same-origin"></iframe>
+        <iframe id="frame2" sandbox="allow-scripts allow-same-origin"></iframe>
     </div>
 
     <div class="ui-container">
-        <div id="loadingMsg">Googleドライブからファイル一覧を取得中...</div>
+        <div id="loadingMsg">Googleドライブから3Dデータを取得中...</div>
         <div class="filename-display" id="filenameDisplay">ファイル名: </div>
         <button id="toggleBtn" disabled>準備中...</button>
     </div>
 
     <script>
         // ==========================================
-        // ★ステップ1で取得した「ウェブアプリのURL」をここに貼り付けます
+        // ★新しくデプロイしたGASのウェブアプリURLを貼り付けます
         // ==========================================
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNlRQKSABT7XgRwcjurtzvI3fR4SGRBSU444BXzKoxv6ZAoCYiZzIvTe6oVDzAT4oZ/exec";
         
@@ -65,7 +65,6 @@
         const filenameDisplay = document.getElementById('filenameDisplay');
         const loadingMsg = document.getElementById('loadingMsg');
 
-        // GASからファイルリストを取得する
         async function fetchFileList() {
             try {
                 const response = await fetch(GAS_WEB_APP_URL);
@@ -77,25 +76,25 @@
                 }
 
                 if (files.length === 0) {
-                    loadingMsg.textContent = "フォルダ内にファイルが見つかりません。";
+                    loadingMsg.textContent = "フォルダ内にHTMLファイルが見つかりません。";
                     return;
                 }
 
-                // 取得成功したらUIを更新して再生スタート
                 loadingMsg.style.display = 'none';
                 toggleBtn.disabled = false;
                 initViewer();
 
             } catch (error) {
-                loadingMsg.textContent = "データの取得に失敗しました。URLを確認してください。";
+                loadingMsg.textContent = "データの取得に失敗しました。";
                 console.error(error);
             }
         }
 
         function initViewer() {
-            frame1.src = files[currentIndex].url;
+            // ★変更点：src ではなく srcdoc に取得したHTMLの中身(content)を流し込む
+            frame1.srcdoc = files[currentIndex].content;
             if(files.length > 1) {
-                frame2.src = files[(currentIndex + 1) % files.length].url;
+                frame2.srcdoc = files[(currentIndex + 1) % files.length].content;
             }
             startAutoPlay();
         }
@@ -110,12 +109,14 @@
                 frame1.classList.remove('active');
                 frame2.classList.add('active');
                 activeFrameId = 'frame2';
-                setTimeout(() => { frame1.src = files[nextIndex].url; }, 1000);
+                // ★ここも srcdoc に変更
+                setTimeout(() => { frame1.srcdoc = files[nextIndex].content; }, 1000);
             } else {
                 frame2.classList.remove('active');
                 frame1.classList.add('active');
                 activeFrameId = 'frame1';
-                setTimeout(() => { frame2.src = files[nextIndex].url; }, 1000);
+                // ★ここも srcdoc に変更
+                setTimeout(() => { frame2.srcdoc = files[nextIndex].content; }, 1000);
             }
         }
 
@@ -139,7 +140,6 @@
             else startAutoPlay();
         });
 
-        // ページ読み込み時にデータ取得を開始
         window.onload = fetchFileList;
     </script>
 </body>
