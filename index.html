@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3D Auto Viewer (Folder Sync)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
+        .viewer-container { position: relative; width: 100vw; height: 100vh; }
+        
+        iframe {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: none; transition: opacity 1s ease-in-out; opacity: 0; pointer-events: none;
+        }
+        iframe.active { opacity: 1; pointer-events: auto; z-index: 10; }
+
+        .ui-container {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 20; display: flex; flex-direction: column; align-items: center; gap: 15px;
+            background: rgba(0, 0, 0, 0.7); padding: 20px 30px; border-radius: 12px; backdrop-filter: blur(5px);
+        }
+        
+        .filename-display { font-size: 1.2rem; font-weight: bold; display: none; }
+        .filename-display.visible { display: block; }
+        
+        #loadingMsg { font-size: 1.2rem; margin-bottom: 10px; color: #00ffcc; }
+
+        button {
+            padding: 12px 30px; font-size: 1rem; font-weight: bold; cursor: pointer;
+            border: none; border-radius: 8px; background-color: #fff; color: #000; transition: background 0.2s;
+        }
+        button:hover { background-color: #ddd; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div class="viewer-container">
+        <iframe id="frame1" class="active"></iframe>
+        <iframe id="frame2"></iframe>
+    </div>
+
+    <div class="ui-container">
+        <div id="loadingMsg">Googleドライブからファイル一覧を取得中...</div>
+        <div class="filename-display" id="filenameDisplay">ファイル名: </div>
+        <button id="toggleBtn" disabled>準備中...</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // ★ステップ1で取得した「ウェブアプリのURL」をここに貼り付けます
+        // ==========================================
+        const GAS_WEB_APP_URL = "ここにコピーしたGASのウェブアプリURLを貼り付けます";
+        
+        let files = [];
+        let currentIndex = 0;
+        let activeFrameId = 'frame1';
+        let isPlaying = true;
+        let intervalId = null;
+        const SWITCH_INTERVAL = 10000; // 10秒
+
+        const frame1 = document.getElementById('frame1');
+        const frame2 = document.getElementById('frame2');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const filenameDisplay = document.getElementById('filenameDisplay');
+        const loadingMsg = document.getElementById('loadingMsg');
+
+        // GASからファイルリストを取得する
+        async function fetchFileList() {
+            try {
+                const response = await fetch(GAS_WEB_APP_URL);
+                files = await response.json();
+
+                if (files.error) {
+                    loadingMsg.textContent = "エラー: " + files.error;
+                    return;
+                }
+
+                if (files.length === 0) {
+                    loadingMsg.textContent = "フォルダ内にファイルが見つかりません。";
+                    return;
+                }
+
+                // 取得成功したらUIを更新して再生スタート
+                loadingMsg.style.display = 'none';
+                toggleBtn.disabled = false;
+                initViewer();
+
+            } catch (error) {
+                loadingMsg.textContent = "データの取得に失敗しました。URLを確認してください。";
+                console.error(error);
+            }
+        }
+
+        function initViewer() {
+            frame1.src = files[currentIndex].url;
+            if(files.length > 1) {
+                frame2.src = files[(currentIndex + 1) % files.length].url;
+            }
+            startAutoPlay();
+        }
+
+        function switchFrame() {
+            if (files.length <= 1) return;
+
+            currentIndex = (currentIndex + 1) % files.length;
+            const nextIndex = (currentIndex + 1) % files.length;
+
+            if (activeFrameId === 'frame1') {
+                frame1.classList.remove('active');
+                frame2.classList.add('active');
+                activeFrameId = 'frame2';
+                setTimeout(() => { frame1.src = files[nextIndex].url; }, 1000);
+            } else {
+                frame2.classList.remove('active');
+                frame1.classList.add('active');
+                activeFrameId = 'frame1';
+                setTimeout(() => { frame2.src = files[nextIndex].url; }, 1000);
+            }
+        }
+
+        function startAutoPlay() {
+            isPlaying = true;
+            toggleBtn.textContent = "一時停止 (Pause)";
+            filenameDisplay.classList.remove('visible');
+            intervalId = setInterval(switchFrame, SWITCH_INTERVAL);
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            clearInterval(intervalId);
+            toggleBtn.textContent = "オート再生 (Play)";
+            filenameDisplay.textContent = "現在表示中: " + files[currentIndex].name;
+            filenameDisplay.classList.add('visible');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            if (isPlaying) stopAutoPlay();
+            else startAutoPlay();
+        });
+
+        // ページ読み込み時にデータ取得を開始
+        window.onload = fetchFileList;
+    </script>
+</body>
+</html>
